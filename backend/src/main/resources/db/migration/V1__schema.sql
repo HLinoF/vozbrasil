@@ -1,0 +1,17 @@
+CREATE TABLE states(id integer PRIMARY KEY, name varchar(255) NOT NULL, uf varchar(2) NOT NULL UNIQUE);
+CREATE TABLE municipalities(id integer PRIMARY KEY, state_id integer NOT NULL REFERENCES states(id), name varchar(255) NOT NULL);
+CREATE INDEX municipality_state_idx ON municipalities(state_id);
+CREATE TABLE surveys(id uuid PRIMARY KEY, title varchar(255) NOT NULL, description varchar(1500) NOT NULL, theme varchar(255) NOT NULL, scope varchar(255) NOT NULL CHECK(scope IN ('NATIONAL','STATE','MUNICIPAL','THEMATIC')), status varchar(255) NOT NULL CHECK(status IN ('DRAFT','PUBLISHED','CLOSED','ARCHIVED')), state_id integer REFERENCES states(id), municipality_id integer REFERENCES municipalities(id), opens_at timestamptz, closes_at timestamptz, created_at timestamptz NOT NULL);
+CREATE TABLE questions(id uuid PRIMARY KEY, survey_id uuid NOT NULL REFERENCES surveys(id) ON DELETE CASCADE, question_key varchar(255) NOT NULL, text varchar(500) NOT NULL, type varchar(255) NOT NULL CHECK(type IN ('SINGLE','MULTI','SCALE','RANK','TEXT')), theme varchar(255) NOT NULL, required boolean NOT NULL, position integer NOT NULL, condition_key varchar(255), condition_value varchar(255), UNIQUE(survey_id,question_key));
+CREATE TABLE question_options(id uuid PRIMARY KEY, question_id uuid NOT NULL REFERENCES questions(id) ON DELETE CASCADE, option_key varchar(255) NOT NULL, label varchar(255) NOT NULL, position integer NOT NULL, UNIQUE(question_id,option_key));
+CREATE TABLE survey_responses(id uuid PRIMARY KEY, survey_id uuid NOT NULL REFERENCES surveys(id), participant varchar(255) NOT NULL, state_id integer REFERENCES states(id), municipality_id integer REFERENCES municipalities(id), created_at timestamptz NOT NULL, UNIQUE(survey_id,participant));
+CREATE INDEX responses_filters_idx ON survey_responses(survey_id,state_id,municipality_id,created_at);
+CREATE TABLE answers(id uuid PRIMARY KEY, response_id uuid NOT NULL REFERENCES survey_responses(id) ON DELETE CASCADE, question_id uuid NOT NULL REFERENCES questions(id), content text NOT NULL, UNIQUE(response_id,question_id));
+CREATE INDEX answers_question_idx ON answers(question_id);
+CREATE TABLE suggestions(id uuid PRIMARY KEY,title varchar(255) NOT NULL,description text NOT NULL,theme varchar(255) NOT NULL,state_id integer REFERENCES states(id),municipality_id integer REFERENCES municipalities(id),status varchar(255) NOT NULL CHECK(status IN ('PENDING','APPROVED','HIDDEN')),created_at timestamptz NOT NULL);
+CREATE INDEX suggestions_public_idx ON suggestions(status,state_id,created_at);
+CREATE TABLE suggestion_supports(id uuid PRIMARY KEY,suggestion_id uuid NOT NULL REFERENCES suggestions(id),participant varchar(255) NOT NULL,created_at timestamptz NOT NULL,UNIQUE(suggestion_id,participant));
+CREATE TABLE reports(id uuid PRIMARY KEY,suggestion_id uuid NOT NULL REFERENCES suggestions(id),participant varchar(255) NOT NULL,reason varchar(500) NOT NULL,status varchar(255) NOT NULL,created_at timestamptz NOT NULL,UNIQUE(suggestion_id,participant));
+CREATE TABLE admin_users(id uuid PRIMARY KEY,username varchar(255) NOT NULL UNIQUE,password_hash varchar(255) NOT NULL,enabled boolean NOT NULL);
+CREATE TABLE audit_logs(id uuid PRIMARY KEY,actor varchar(255) NOT NULL,action varchar(255) NOT NULL,resource_id uuid,created_at timestamptz NOT NULL);
+CREATE TABLE survey_starts(id uuid PRIMARY KEY,survey_id uuid NOT NULL REFERENCES surveys(id),participant varchar(255) NOT NULL,created_at timestamptz NOT NULL,UNIQUE(survey_id,participant));
